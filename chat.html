@@ -148,7 +148,7 @@
     </div>
 
     <script>
-        const socket = io("http://localhost:3000"); // Change to your server URL
+        const socket = io("https://letschat-wl7e.onrender.com/"); // Change to your server URL
 
         socket.on("chatHistory", (messages) => {
             const messagesDiv = document.getElementById('chatMessages');
