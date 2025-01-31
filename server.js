@@ -1,12 +1,15 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const cors = require("cors");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-let messages = []; // Temporary in-memory storage
+app.use(cors());
+
+let messages = []; // Store messages in memory
 
 io.on("connection", (socket) => {
     console.log("User connected");
@@ -18,11 +21,13 @@ io.on("connection", (socket) => {
         const timestamp = Date.now();
         messages.push({ ...data, timestamp });
 
-        // Broadcast the message to all users
-        io.emit("chatMessage", data);
+        // Keep only the last 100 messages
+        if (messages.length > 100) {
+            messages.shift();
+        }
 
-        // Remove messages older than 1 hour
-        messages = messages.filter(msg => Date.now() - msg.timestamp < 3600000);
+        // Broadcast message to all users
+        io.emit("chatMessage", data);
     });
 
     socket.on("disconnect", () => {
@@ -30,6 +35,7 @@ io.on("connection", (socket) => {
     });
 });
 
-server.listen(3000, () => {
-    console.log("Server running on port 3000");
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
