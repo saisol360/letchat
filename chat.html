@@ -164,42 +164,92 @@
         </div>
     </div>
 
-    <script>
-        const socket = io("https://letschat-wl7e.onrender.com/");
-        let userWallet = "Unknown User";
+<script>
+    const socket = io("https://letschat-wl7e.onrender.com/");
+    let userWallet = "Unknown User";
 
-        async function connectWallet() {
-            if (window.solana && window.solana.isPhantom) {
-                try {
-                    const response = await window.solana.connect();
-                    userWallet = response.publicKey.toString();
-                } catch (error) {
-                    console.warn("Wallet connection failed");
-                }
+    // Connect wallet logic
+    async function connectWallet() {
+        if (window.solana && window.solana.isPhantom) {
+            try {
+                const response = await window.solana.connect();
+                userWallet = response.publicKey.toString();
+            } catch (error) {
+                console.warn("Wallet connection failed");
             }
         }
+    }
 
-        connectWallet();
+    // Retrieve and display messages from localStorage
+    function loadMessages() {
+        const messagesDiv = document.getElementById('chatMessages');
+        const storedMessages = JSON.parse(localStorage.getItem('chatMessages')) || [];
 
-        function sendMessage() {
-            const input = document.getElementById('messageInput');
-            const message = input.value.trim();
-            if (message && userWallet !== "Unknown User") {
-                socket.emit("chatMessage", { user: userWallet, message });
-                input.value = '';
-            } else {
-                alert("Please connect your wallet before sending messages.");
-            }
-        }
+        // Filter out messages older than 1 hour
+        const currentTime = Date.now();
+        const validMessages = storedMessages.filter(msg => currentTime - msg.timestamp < 3600000);
 
-        socket.on("chatMessage", (data) => {
-            const messagesDiv = document.getElementById('chatMessages');
+        validMessages.forEach((data) => {
             const messageElement = document.createElement('div');
             messageElement.className = 'message';
             messageElement.innerHTML = `<strong>${data.user}:</strong> ${data.message}`;
             messagesDiv.appendChild(messageElement);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         });
-    </script>
+
+        // Update localStorage with valid messages
+        localStorage.setItem('chatMessages', JSON.stringify(validMessages));
+
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // Send message
+    function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const message = input.value.trim();
+        if (message && userWallet !== "Unknown User") {
+            const newMessage = {
+                user: userWallet,
+                message: message,
+                timestamp: Date.now() // Store timestamp
+            };
+
+            // Save message to localStorage
+            const storedMessages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+            storedMessages.push(newMessage);
+            localStorage.setItem('chatMessages', JSON.stringify(storedMessages));
+
+            // Emit the message to the server
+            socket.emit("chatMessage", newMessage);
+
+            input.value = '';  // Clear input after sending
+        } else {
+            alert("Please connect your wallet before sending messages.");
+        }
+    }
+
+    // Listen for new chat messages from other users
+    socket.on("chatMessage", (data) => {
+        const messagesDiv = document.getElementById('chatMessages');
+        const messageElement = document.createElement('div');
+        messageElement.className = 'message';
+        messageElement.innerHTML = `<strong>${data.user}:</strong> ${data.message}`;
+        messagesDiv.appendChild(messageElement);
+
+        // Save the new message to localStorage if it isn't already there
+        const storedMessages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+        if (!storedMessages.some(msg => msg.timestamp === data.timestamp)) {
+            storedMessages.push(data);
+            localStorage.setItem('chatMessages', JSON.stringify(storedMessages));
+        }
+
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+
+    // Initialize chat and load messages
+    connectWallet();
+    loadMessages();
+</script>
+
+
 </body>
 </html>
